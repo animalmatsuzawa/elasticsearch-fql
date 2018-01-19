@@ -1,0 +1,134 @@
+/*
+ * the Apache License, Version 2.0 (the "License"); you may
+ * not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+buildscript {
+    repositories {
+        mavenCentral()
+        jcenter()
+        maven {
+            name 'sonatype-snapshots'
+            url "https://oss.sonatype.org/content/repositories/snapshots/"
+        }
+    }
+    dependencies {
+        classpath "org.elasticsearch.gradle:build-tools:6.1.0"
+    }
+}
+
+apply plugin: 'elasticsearch.esplugin'
+apply plugin: 'idea'
+apply plugin: 'eclipse'
+
+licenseFile = rootProject.file('LICENSE.txt')
+noticeFile = rootProject.file('NOTICE.txt')
+
+esplugin {
+  description 'Demonstrates all the pluggable Java entry points in Elasticsearch'
+  classname 'org.elasticsearch.plugin.fql.FastCompatiblePlugin'
+  licenseFile rootProject.file('LICENSE.txt')
+  noticeFile rootProject.file('NOTICE.txt')
+}
+
+// no unit tests
+
+//test.enabled = false
+licenseHeaders.enabled = false
+integTest.enabled = false
+
+thirdPartyAudit.excludes = [
+  'com.fasterxml.jackson.module.jaxb.JaxbAnnotationIntrospector',
+  'com.sun.msv.grammar.IDContextProvider2', 
+  'com.sun.msv.grammar.trex.TREXGrammar', 
+  'com.sun.msv.grammar.xmlschema.XMLSchemaGrammar', 
+  'com/sun.msv.reader.GrammarReaderController', 
+  'com.sun.msv.reader.trex.ng.RELAXNGReader', 
+  'com.sun.msv.reader.util.IgnoreController', 
+  'com.sun.msv.reader.xmlschema.XMLSchemaReader', 
+  'com.sun.msv.util.StartTagInfo', 
+  'com.sun.msv.util.StringRef', 
+  'com.sun.msv.verifier.Acceptor', 
+  'com.sun.msv.verifier.DocumentDeclaration', 
+  'com.sun.msv.verifier.regexp.REDocumentDeclaration', 
+  'com.sun.msv.verifier.regexp.StringToken', 
+  'com.sun.msv.verifier.regexp.xmlschema.XSREDocDecl', 
+  'org.osgi.framework.BundleActivator', 
+  'org.osgi.framework.BundleContext'
+]
+
+//configurations {
+//  exampleFixture
+//}
+
+javadoc.options.addStringOption('Xdoclint:none', '-quiet')
+
+
+compileJava {
+options.compilerArgs += ["-Xdoclint:none", "-Xlint:none", "-nowarn"]
+ext.compactProfile = null
+}
+
+tasks.withType(JavaCompile) {
+    println '################ Compiler args: ' + options.compilerArgs
+}
+
+// aparse abnf -> java
+ant.taskdef( name: 'aparse',
+             classname: 'com.parse2.aparse.AntTask' ) {
+        classpath {
+            fileset(dir: './lib', includes: '*.jar')
+        }
+}
+ant.aparse( grammar:'./src/main/config/fql.abnf', 
+            package:'org.elasticsearch.search.fql.grammar',
+            destDir:'./src/main/java/org/elasticsearch/search/fql/grammar' )
+
+ant.replaceregexp(match:'<br/>', replace:'<br>', flags:'g', byline:true, file:'./src/main/java/org/elasticsearch/search/fql/grammar/ParserException.java')
+
+dependencies {
+    compile "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:${versions.jackson}"
+
+    compile group: 'org.codehaus.woodstox', name: 'stax2-api', version: '4.0.0'
+    compile "com.fasterxml.woodstox:woodstox-core:5.0.2"
+    compile "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
+    compile "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
+    compile "com.fasterxml.jackson.core:jackson-annotations:${versions.jackson}"
+
+    testCompile group: 'org.elasticsearch.plugin', name: 'transport-netty4-client', version: '6.1.0'
+}
+//
+//task exampleFixture(type: org.elasticsearch.gradle.test.Fixture) {
+//  dependsOn project.configurations.exampleFixture
+//  executable = new File(project.javaHome, 'bin/java')
+//  args '-cp', "${ -> project.configurations.exampleFixture.asPath }",
+//       'example.ExampleTestFixture',
+//       baseDir
+//}
+//
+//integTest {
+//  dependsOn exampleFixture
+//}
+//integTestRunner {
+//  systemProperty 'external.address', "${ -> exampleFixture.addressAndPort }"
+//}
+
+checkstyle {
+  checkstyleMain.exclude '**/org/elasticsearch/search/fql/grammar/**'
+}
+forbiddenApisMain {
+  exclude '**/org/elasticsearch/search/fql/grammar/**'
+}
+test {
+  systemProperty 'tests.security.manager', 'false'
+}
