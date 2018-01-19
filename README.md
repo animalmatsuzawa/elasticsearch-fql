@@ -77,6 +77,7 @@ PUT /_fast/test/type/_navigation
 ```
 
 ## response
+```
 {
   "_index" : ".fast",
   "_type" : "dGVzdA==",
@@ -91,6 +92,7 @@ PUT /_fast/test/type/_navigation
   "_seq_no" : 0,
   "_primary_term" : 1
 }
+```
 
 ## 検索結果
 ### request
